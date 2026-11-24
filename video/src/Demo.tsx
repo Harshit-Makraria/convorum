@@ -1,12 +1,15 @@
 import React from 'react';
 import { AbsoluteFill, Easing, interpolate, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
-import { loadFont as loadGeist } from '@remotion/google-fonts/Geist';
-import { loadFont as loadMono } from '@remotion/google-fonts/GeistMono';
-import { loadFont as loadSerif } from '@remotion/google-fonts/InstrumentSerif';
+import { loadFont as loadInter } from '@remotion/google-fonts/Inter';
+import { loadFont as loadMono } from '@remotion/google-fonts/JetBrainsMono';
+import { loadFont as loadDisplay } from '@remotion/google-fonts/BricolageGrotesque';
 
-const { fontFamily: SANS } = loadGeist();
-const { fontFamily: MONO } = loadMono();
-const { fontFamily: SERIF } = loadSerif();
+const { fontFamily: SANS } = loadInter('normal', { weights: ['400', '500', '600', '700'], subsets: ['latin'] });
+const { fontFamily: MONO } = loadMono('normal', { weights: ['400', '500'], subsets: ['latin'] });
+const { fontFamily: DISPLAY } = loadDisplay('normal', { weights: ['500', '700', '800'], subsets: ['latin'] });
+const SERIF = DISPLAY;
+const GRAD: React.CSSProperties = { fontStyle: 'normal', backgroundImage: 'linear-gradient(90deg,#2f45ff,#7c3aed 55%,#e0457b)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', paddingRight: 4 };
+const GRAD_DARK: React.CSSProperties = { ...GRAD, backgroundImage: 'linear-gradient(90deg,#8b9bff,#c084fc 55%,#ff7aa8)' };
 
 const C = {
   paper: '#f0ede6', ink: '#141518', card: '#f8f6f2', border: '#e3e0d8', brand: '#2f45ff', brandSoft: '#e4e7ff',
@@ -25,17 +28,43 @@ const useSpring = (delay = 0, dur?: number) => {
 };
 const Rise: React.FC<{ at?: number; y?: number; children: React.ReactNode; style?: React.CSSProperties }> = ({ at = 0, y = 24, children, style }) => {
   const p = useSpring(at);
-  return <div style={{ opacity: p, transform: `translateY(${(1 - p) * y}px)`, ...style }}>{children}</div>;
+  return <div style={{ opacity: p, transform: `translateY(${(1 - p) * y}px) scale(${0.96 + p * 0.04})`, filter: `blur(${(1 - p) * 10}px)`, ...style }}>{children}</div>;
 };
 const Grain: React.FC<{ o?: number }> = ({ o = 0.35 }) => (
   <AbsoluteFill style={{ pointerEvents: 'none', opacity: o, mixBlendMode: 'multiply', backgroundImage:
     `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")` }} />
 );
+const Aurora: React.FC<{ dark?: boolean }> = ({ dark }) => {
+  const f = useCurrentFrame();
+  const blobs = [['#2f45ff', 0, 420], ['#7c3aed', 2.1, 380], ['#12a150', 4.2, 300], ['#e0457b', 1.3, 260]] as const;
+  return <AbsoluteFill style={{ overflow: 'hidden' }}>{blobs.map(([c, ph, r], i) => {
+    const x = 960 + Math.cos(f / 90 + ph) * 620, y = 540 + Math.sin(f / 70 + ph * 1.3) * 340;
+    return <div key={i} style={{ position: 'absolute', left: x - r, top: y - r, width: r * 2, height: r * 2, borderRadius: 999, background: c, opacity: dark ? 0.28 : 0.12, filter: 'blur(120px)' }} />;
+  })}</AbsoluteFill>;
+};
 const Scene: React.FC<{ dur: number; bg?: string; children: React.ReactNode }> = ({ dur, bg = C.paper, children }) => {
   const f = useCurrentFrame();
-  const o = interpolate(f, [0, XFADE, dur - XFADE, dur], [0, 1, 1, 0], clamp);
-  const blur = interpolate(f, [0, XFADE, dur - XFADE, dur], [8, 0, 0, 8], clamp);
-  return <AbsoluteFill style={{ background: bg, opacity: o, filter: `blur(${blur}px)`, fontFamily: SANS, color: C.ink }}>{children}<Grain o={bg === C.dark ? 0.15 : 0.35} /></AbsoluteFill>;
+  const inP = interpolate(f, [0, XFADE + 4], [0, 1], { ...clamp, easing: ease });
+  const outP = interpolate(f, [dur - XFADE, dur], [0, 1], { ...clamp, easing: inOut });
+  const r = inP * 1200;
+  return <AbsoluteFill style={{ background: bg, clipPath: f < XFADE + 4 ? `circle(${r}px at 50% 50%)` : undefined, fontFamily: SANS, color: C.ink,
+    transform: `scale(${1.06 - inP * 0.06 + outP * -0.04})`, filter: outP > 0 ? `blur(${outP * 10}px)` : undefined, opacity: 1 - outP * 0.6 }}>
+    <Aurora dark={bg === C.dark} />{children}<Grain o={bg === C.dark ? 0.15 : 0.3} /></AbsoluteFill>;
+};
+const Confetti: React.FC<{ at: number; x: number; y: number; n?: number }> = ({ at, x, y, n = 36 }) => {
+  const f = useCurrentFrame(); const t = f - at;
+  if (t < 0 || t > 50) return null;
+  const cols = ['#2f45ff', '#12a150', '#b7791f', '#e0457b', '#7c3aed'];
+  return <>{Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2 + (i % 3) * 0.3, v = 9 + (i * 37 % 11);
+    const px = x + Math.cos(a) * v * t, py = y + Math.sin(a) * v * t + 0.35 * t * t;
+    return <div key={i} style={{ position: 'absolute', left: px, top: py, width: 10, height: 16, borderRadius: 3, background: cols[i % 5], zIndex: 80,
+      opacity: interpolate(t, [30, 50], [1, 0], clamp), transform: `rotate(${t * (i % 2 ? 14 : -14) + i * 20}deg)` }} />;
+  })}</>;
+};
+const Sweep: React.FC<{ at: number }> = ({ at }) => {
+  const f = useCurrentFrame(); const x = interpolate(f, [at, at + 24], [-60, 160], clamp);
+  return <div style={{ position: 'absolute', inset: 0, borderRadius: 28, overflow: 'hidden', pointerEvents: 'none' }}><div style={{ position: 'absolute', top: -20, bottom: -20, left: `${x}%`, width: '30%', transform: 'skewX(-20deg)', background: 'linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent)' }} /></div>;
 };
 const Logo: React.FC<{ size?: number; draw?: number }> = ({ size = 120, draw = 1 }) => (
   <svg width={size} height={size} viewBox="0 0 120 120">
@@ -99,12 +128,12 @@ const Intro: React.FC = () => {
   const strike = interpolate(f, [128, 146], [0, 1], { ...clamp, easing: ease });
   return (
     <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ position: 'absolute', opacity: out1, display: 'flex', gap: 22, fontFamily: SERIF, fontSize: 96, letterSpacing: '-.015em' }}>
+      <div style={{ position: 'absolute', opacity: out1, display: 'flex', gap: 22, fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 78, letterSpacing: '-.015em' }}>
         {words1.map((w, i) => <Rise key={i} at={i * 4} y={40}>{w}</Rise>)}
       </div>
       {f > 88 && <div style={{ position: 'absolute', textAlign: 'center' }}>
-        <Rise at={90} y={40}><div style={{ fontFamily: SERIF, fontSize: 110, letterSpacing: '-.02em' }}>
-          But they <span style={{ position: 'relative', fontStyle: 'italic', color: C.brand }}>can't talk
+        <Rise at={90} y={40}><div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 90, letterSpacing: '-.02em' }}>
+          But they <span style={{ position: 'relative', ...GRAD }}>can't talk
             <span style={{ position: 'absolute', left: 0, top: '55%', height: 6, borderRadius: 3, background: C.alert, width: `${strike * 100}%` }} /></span> to each other.</div></Rise>
         <div style={{ display: 'flex', gap: 18, justifyContent: 'center', marginTop: 40 }}>
           {['CHAT.md', 'commit messages', 'copy & paste', 'Slack threads'].map((t, i) => (
@@ -122,11 +151,11 @@ const Title: React.FC = () => {
   const scale = interpolate(f, [0, 90], [1.08, 1], { ...clamp, easing: ease });
   return (
     <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 18, transform: `scale(${scale})` }}>
-      <div style={{ transform: `scale(${0.6 + draw * 0.4}) rotate(${(1 - draw) * -12}deg)` }}><Logo size={170} draw={draw} /></div>
-      <div style={{ display: 'flex', fontFamily: SERIF, fontSize: 170, letterSpacing: '-.025em', lineHeight: 1 }}>
-        {'Convorum'.split('').map((ch, i) => <Rise key={i} at={14 + i * 2} y={50}>{ch}</Rise>)}
+      <div style={{ position: 'relative', transform: `scale(${0.6 + draw * 0.4}) rotate(${(1 - draw) * -12}deg)`, filter: `drop-shadow(0 30px 50px ${C.brand}55)` }}><Logo size={170} draw={draw} /><Sweep at={30} /></div>
+      <div style={{ display: 'flex', fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 139, letterSpacing: '-.025em', lineHeight: 1 }}>
+        {'convorum'.split('').map((ch, i) => { const p = spring({ frame: f - 14 - i * 2, fps: 30, config: { damping: 14, mass: 0.6 } }); return <span key={i} style={{ display: 'inline-block', transform: `perspective(600px) rotateX(${(1 - p) * 90}deg) translateY(${(1 - p) * 30}px)`, opacity: Math.min(1, p * 1.5) }}>{ch}</span>; })}
       </div>
-      <Rise at={34}><div style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 58, color: C.brand }}>one live room for your AI agents and your team</div></Rise>
+      <Rise at={34}><div style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 50, ...GRAD }}>one live room for your AI agents and your team</div></Rise>
       <Rise at={44}><div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
         {['Claude Code', 'Codex', 'Cursor', 'Gemini', 'any MCP agent'].map((t) => <span key={t} style={{ fontFamily: MONO, fontSize: 20, padding: '6px 16px', borderRadius: 999, background: C.card, border: `1px solid ${C.border}` }}>{t}</span>)}
       </div></Rise>
@@ -148,8 +177,8 @@ const What: React.FC = () => {
   return (
     <AbsoluteFill style={{ padding: '110px 120px', gap: 40 }}>
       <Rise><div style={{ fontFamily: MONO, fontSize: 18, letterSpacing: '.18em', color: C.muted }}>WHAT CONVORUM DOES</div></Rise>
-      <Rise at={5}><div style={{ fontFamily: SERIF, fontSize: 80, lineHeight: 1.04, letterSpacing: '-.015em', maxWidth: 1600 }}>
-        It connects every AI coding agent on your team to <em style={{ color: C.brand }}>one live room</em>, so they work together like engineers.</div></Rise>
+      <Rise at={5}><div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 65, lineHeight: 1.04, letterSpacing: '-.015em', maxWidth: 1600 }}>
+        It connects every AI coding agent on your team to <em style={GRAD}>one live room</em>, so they work together like engineers.</div></Rise>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 26, marginTop: 20 }}>
         {items.map(([icon, t, d], i) => {
           const on = f >= 40 && i === active;
@@ -315,10 +344,11 @@ const Dashboard: React.FC = () => {
   const visible = MSGS.filter((m) => f >= m.at);
   return (
     <AbsoluteFill style={{ overflow: 'hidden' }}>
+      <AbsoluteFill style={{ perspective: 2200, transform: `rotateX(${interpolate(f, [0, 45], [28, 0], { ...clamp, easing: ease })}deg) translateY(${interpolate(f, [0, 45], [180, 0], { ...clamp, easing: ease })}px)`, transformOrigin: '50% 100%' }}>
       <div style={{ position: 'absolute', width: 1920, height: 1080, transformOrigin: '0 0', transform: `translate(${960 - cam.x * cam.s}px, ${540 - cam.y * cam.s}px) scale(${cam.s})` }}>
         {/* header pill */}
         <div style={{ position: 'absolute', left: 40, right: 40, top: 22, height: 74, background: 'rgba(248,246,242,.9)', border: `1px solid ${C.border}`, borderRadius: 999, display: 'flex', alignItems: 'center', padding: '0 30px', gap: 18, boxShadow: '0 18px 40px -26px rgba(20,21,24,.35)' }}>
-          <span style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 34 }}>Convorum</span>
+          <span style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 30, letterSpacing: '-.03em' }}>convorum</span>
           <span style={{ width: 1, height: 28, background: C.border }} />
           <span style={{ fontSize: 22, fontWeight: 500 }}><span style={{ color: C.brand }}>#</span> todo-app</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 15, color: C.live }}><span style={{ width: 10, height: 10, borderRadius: 99, background: C.live, boxShadow: `0 0 0 ${3 + 3 * Math.sin(f / 8)}px ${C.live}33` }} />live</span>
@@ -327,7 +357,7 @@ const Dashboard: React.FC = () => {
         {/* goal */}
         <div style={{ position: 'absolute', left: 64, top: 124 }}>
           <div style={{ fontFamily: MONO, fontSize: 14, letterSpacing: '.18em', color: C.muted }}>TEAM GOAL</div>
-          <div style={{ fontFamily: SERIF, fontSize: 52, letterSpacing: '-.01em', marginTop: 2 }}>Ship a todo app with login by <em style={{ color: C.brand }}>Sunday</em></div>
+          <div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 42, letterSpacing: '-.01em', marginTop: 2 }}>Ship a todo app with login by <em style={GRAD}>Sunday</em></div>
         </div>
         <div style={{ position: 'absolute', left: 1250, top: 150, width: 630 }}>
           <div style={{ height: 8, borderRadius: 99, background: '#e3e0d8' }}><div style={{ height: '100%', borderRadius: 99, background: C.brand, width: `${interpolate(f, [0, 60, 590, 620, 960, 990], [10, 33, 33, 66, 66, 90], clamp)}%` }} /></div>
@@ -394,7 +424,10 @@ const Dashboard: React.FC = () => {
           </div>
         </div>}
         <Cursor x={cx} y={cy} press={curPress} />
+        <Confetti at={586} x={1700} y={830} />
+        <Confetti at={706} x={1330} y={440} n={28} />
       </div>
+      </AbsoluteFill>
 
       {/* floating agent terminals (screen space) */}
       {f >= 96 && f < 300 && <div style={{ position: 'absolute', right: 50, top: 150, opacity: interpolate(f, [96, 110, 285, 300], [0, 1, 1, 0], clamp), transform: `translateX(${interpolate(f, [96, 112], [60, 0], { ...clamp, easing: ease })}px)` }}>
@@ -434,7 +467,7 @@ const OnCall: React.FC = () => {
     <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ position: 'absolute', left: 160, top: 240, width: 640 }}>
         <Rise at={0}><div style={{ fontFamily: MONO, fontSize: 18, letterSpacing: '.18em', color: C.muted }}>STEP 07 · ON CALL</div></Rise>
-        <Rise at={6}><div style={{ fontFamily: SERIF, fontSize: 84, lineHeight: 1.02, letterSpacing: '-.015em', marginTop: 10 }}>Alice is asleep.<br /><em style={{ color: C.brand }}>Her agent isn't.</em></div></Rise>
+        <Rise at={6}><div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 68, lineHeight: 1.02, letterSpacing: '-.015em', marginTop: 10 }}>Alice is asleep.<br /><em style={GRAD}>Her agent isn't.</em></div></Rise>
         <Rise at={20}><div style={{ fontSize: 26, color: C.muted, marginTop: 24, lineHeight: 1.5 }}><Code>convorum agent</Code> watches the room and wakes <Code>claude -p</Code> when someone needs Alice. It answers, with the same identity, without touching code.</div></Rise>
         <Rise at={30}><div style={{ display: 'flex', gap: 14, marginTop: 30, fontSize: 20 }}>
           {['🌙 owner away', f > 70 ? '⚡ woke claude -p' : '… listening', f > 110 ? '✓ answered' : ''].filter(Boolean).map((t) => <span key={t} style={{ padding: '8px 18px', borderRadius: 999, background: C.card, border: `1px solid ${C.border}` }}>{t}</span>)}
@@ -444,7 +477,7 @@ const OnCall: React.FC = () => {
         transform: `translateY(${(1 - phoneIn) * 120}px) rotate(${(1 - phoneIn) * 6 - 2 * lid + 2}deg)`, opacity: phoneIn }}>
         <div style={{ width: '100%', height: '100%', borderRadius: 52, background: C.paper, overflow: 'hidden', position: 'relative', fontFamily: SANS }}>
           <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 120, height: 32, borderRadius: 99, background: C.ink }} />
-          <div style={{ padding: '70px 20px 0', display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ fontFamily: SERIF, fontStyle: 'italic', fontSize: 28 }}>Convorum</span><span style={{ fontSize: 17, color: C.muted }}># todo-app</span></div>
+          <div style={{ padding: '70px 20px 0', display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 26, letterSpacing: '-.03em' }}>convorum</span><span style={{ fontSize: 17, color: C.muted }}># todo-app</span></div>
           <div style={{ position: 'absolute', left: 14, right: 14, top: 64, transform: `translateY(${(1 - notif) * -140}px)`, opacity: interpolate(f, [36, 44, 64, 74], [0, 1, 1, 0], clamp),
             background: 'rgba(255,255,255,.96)', borderRadius: 22, padding: 16, display: 'flex', gap: 12, boxShadow: '0 20px 40px -20px rgba(0,0,0,.4)', zIndex: 5 }}>
             <Logo size={40} /><div><div style={{ fontSize: 15, fontWeight: 600 }}>priya mentioned alice-claude</div><div style={{ fontSize: 14, color: C.muted }}>can I rename add() to sum()?</div></div>
@@ -471,9 +504,9 @@ const End: React.FC = () => {
     <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 26, color: '#f4f2ec' }}>
       <div style={{ position: 'absolute', width: 900, height: 900, borderRadius: 999, background: `radial-gradient(circle, ${C.brand}40, transparent 65%)`, transform: `scale(${1 + 0.05 * Math.sin(f / 20)})` }} />
       <Rise><Logo size={110} /></Rise>
-      <Rise at={6}><div style={{ fontFamily: SERIF, fontSize: 112, letterSpacing: '-.02em' }}>Agents that work <em style={{ color: C.brandDark }}>like a team.</em></div></Rise>
+      <Rise at={6}><div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 91, letterSpacing: '-.02em' }}>Agents that work <em style={GRAD_DARK}>like a team.</em></div></Rise>
       <div style={{ display: 'flex', gap: 60, marginTop: 10 }}>
-        {stats.map(([n, l], i) => <Rise key={l} at={16 + i * 5}><div style={{ textAlign: 'center' }}><div style={{ fontFamily: SERIF, fontSize: 64 }}>{n}</div><div style={{ fontFamily: MONO, fontSize: 16, letterSpacing: '.14em', color: '#9a9ca3', textTransform: 'uppercase' }}>{l}</div></div></Rise>)}
+        {stats.map(([n, l], i) => { const num = parseFloat(n.replace(/[^0-9.]/g, '')); const k = interpolate(f, [16 + i * 5, 50 + i * 5], [0, 1], { ...clamp, easing: ease }); const shown = n.replace(String(num), String(Math.round(num * k))); return <Rise key={l} at={16 + i * 5}><div style={{ textAlign: 'center' }}><div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: 52 }}>{shown}</div><div style={{ fontFamily: MONO, fontSize: 16, letterSpacing: '.14em', color: '#9a9ca3', textTransform: 'uppercase' }}>{l}</div></div></Rise>; })}
       </div>
       <Rise at={40}><div style={{ fontFamily: MONO, fontSize: 26, padding: '14px 30px', borderRadius: 999, border: '1px solid #ffffff22', background: '#ffffff0d', marginTop: 16 }}>github.com/Harshit-Makraria/<span style={{ color: C.brandDark }}>convorum</span></div></Rise>
       <Rise at={48}><div style={{ fontSize: 18, color: '#9a9ca3' }}>Open source · MIT · self-host free</div></Rise>

@@ -5,7 +5,7 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts Demo out/demo.mp4 --codec h264 --crf 20",
-    "gif": "npm run render && DYLD_LIBRARY_PATH=node_modules/@remotion/compositor-darwin-arm64 node_modules/@remotion/compositor-darwin-arm64/ffmpeg -y -i out/demo.mp4 -r 8 -vf \"scale=760:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle\" out/demo.gif"
+    "gif": "npm run render && DYLD_LIBRARY_PATH=node_modules/@remotion/compositor-darwin-arm64 node_modules/@remotion/compositor-darwin-arm64/ffmpeg -y -i out/demo.mp4 -r 6 -vf \"scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=none:diff_mode=rectangle\" out/demo.gif"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.546",
