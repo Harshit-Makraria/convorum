@@ -1,0 +1,6 @@
+node_modules/
+.convorum/
+.convorum.json
+*.db
+*.db-*
+.DS_Store

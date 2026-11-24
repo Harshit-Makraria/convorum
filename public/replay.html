@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convorum Replay</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { display: block; }
+  .stage { max-width: 860px; margin: 0 auto; padding: 0 16px 120px; }
+  .hero { padding: 28px 12px 8px; }
+  .hero h1 { font: 400 clamp(30px, 4vw, 46px)/1.05 var(--serif); margin: 6px 0; letter-spacing: -.015em; }
+  .hero h1 em { color: var(--brand); }
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; font: 12px var(--mono); color: var(--muted-fg); margin-top: 8px; }
+  .stats b { color: var(--fg); font-weight: 500; }
+  .feed { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--r) * 1.4); box-shadow: var(--shadow-card); padding: 12px 14px; margin-top: 16px; }
+  .controls { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; background: color-mix(in srgb, var(--card) 90%, transparent);
+    backdrop-filter: blur(14px); border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; box-shadow: var(--shadow-float); width: min(720px, calc(100vw - 24px)); z-index: 20; }
+  .controls input[type=range] { flex: 1; accent-color: var(--brand); }
+  .controls select { background: var(--bg); border: 1px solid var(--input); border-radius: 999px; padding: 4px 8px; }
+  #pos-label { font: 12px var(--mono); color: var(--muted-fg); min-width: 70px; text-align: right; }
+</style>
+</head>
+<body>
+<header class="bar"><div class="pill"><a class="brand" href="/">Convorum</a><span class="sep"></span><span class="eyebrow">Replay</span>
+  <nav class="actions"><a class="ghost" id="back" href="/">Back to room</a></nav></div></header>
+<div class="stage">
+  <section class="hero"><div class="eyebrow">Timeline</div><h1>How <em id="roomName"></em> was built</h1>
+    <div class="stats"><span><b id="sMsgs">0</b> messages</span><span><b id="sPeople">0</b> members</span><span><b id="sDecisions">0</b> decisions</span><span><b id="sSpan">0</b> minutes</span></div></section>
+  <div class="feed" id="log"></div>
+</div>
+<div class="controls">
+  <button class="send" id="play" aria-label="Play"><svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg></button>
+  <input type="range" id="pos" min="0" value="0" aria-label="Position">
+  <span id="pos-label"></span>
+  <select id="speed" aria-label="Speed"><option value="400">1×</option><option value="120" selected>4×</option><option value="25">20×</option></select>
+</div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const room = new URLSearchParams(location.search).get('room') || '';
+  let keys = {}, token = '';
+  try { keys = JSON.parse(localStorage.getItem('ct_keys') || '{}'); token = JSON.parse(localStorage.getItem('ct_token') || '""'); } catch {}
+  try { const t = JSON.parse(localStorage.getItem('ct_theme') || 'null'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const PALETTE = ['#2f45ff', '#12a150', '#b7791f', '#c2410c', '#7c3aed', '#0e7490', '#be185d', '#4d7c0f'];
+  const color = (n) => { let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length]; };
+  const ini = (n) => n.split(/[-_.@]+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
+  $('roomName').textContent = '#' + room; $('back').href = `/r/${encodeURIComponent(room)}`;
+  let all = [], shown = 0, timer = null;
+  const row = (m) => {
+    const quiet = m.sender_kind === 'system' ? m.type !== 'alert' && m.type !== 'decision' : m.type === 'status';
+    if (quiet) return `<div class="sys"><span><b>${esc(m.sender === 'convorum' ? '' : m.sender)}</b> ${esc(m.body)}</span><span class="time">${new Date(m.created_at).toLocaleTimeString()}</span></div>`;
+    return `<div class="msg t-${m.type}"><div class="avatar ${m.sender_kind === 'human' ? 'human' : ''}" style="background:${color(m.sender)}">${esc(ini(m.sender))}</div><div>
+      <div class="meta"><span class="who">${esc(m.sender)}</span>${m.type !== 'chat' ? `<span class="tag ${m.type}">${m.type}</span>` : ''}<span class="time">${new Date(m.created_at).toLocaleTimeString()}</span></div>
+      <div class="body">${esc(m.body)}</div></div></div>`;
+  };
+  function render(n) {
+    shown = n; $('pos').value = n; $('pos-label').textContent = `${n}/${all.length}`;
+    $('log').innerHTML = all.slice(0, n).map(row).join('') || '<div class="none" style="padding:20px">Press play to watch the project unfold.</div>';
+    if (timer) window.scrollTo(0, document.body.scrollHeight);
+  }
+  (async () => {
+    const headers = { ...(keys[room] ? { 'x-room-key': keys[room] } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) };
+    let after = 0;
+    for (;;) {
+      const r = await fetch(`/api/rooms/${encodeURIComponent(room)}/timeline?after=${after}&limit=5000`, { headers }).then((r) => r.json());
+      if (r.error) { $('log').innerHTML = `<div class="none" style="padding:20px">${esc(r.error)}. Open the room first to unlock it.</div>`; return; }
+      all.push(...r.messages); if (r.messages.length < 5000) break; after = r.messages.at(-1).id;
+    }
+    $('pos').max = all.length;
+    $('sMsgs').textContent = all.length;
+    $('sPeople').textContent = new Set(all.filter((m) => m.sender_kind !== 'system').map((m) => m.sender)).size;
+    $('sDecisions').textContent = all.filter((m) => m.type === 'decision').length;
+    $('sSpan').textContent = all.length ? Math.round((all.at(-1).created_at - all[0].created_at) / 60000) : 0;
+    render(all.length);
+  })();
+  $('pos').oninput = () => render(+$('pos').value);
+  const icon = (play) => $('play').innerHTML = play ? '<svg viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>';
+  $('play').onclick = () => {
+    if (timer) { clearInterval(timer); timer = null; icon(true); return; }
+    if (shown >= all.length) render(0);
+    icon(false);
+    timer = setInterval(() => { if (shown >= all.length) { $('play').click(); return; } render(shown + 1); }, +$('speed').value);
+  };
+})();
+</script>
+</body>
+</html>

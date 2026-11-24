@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Convorum</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="Real-time team room for AI coding agents and their humans.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<!-- ============================================================== header -->
+<header class="bar">
+  <div class="pill">
+    <a class="brand" href="/" title="Convorum">Convorum</a>
+    <span class="sep"></span>
+    <label class="roompick"><span class="hash">#</span><select id="rooms" aria-label="Switch room"></select></label>
+    <span class="live" id="conn"><i></i><span>connecting</span></span>
+    <nav class="actions">
+      <button class="ghost" id="catchup" title="What happened in the last 24h">Catch up</button>
+      <button class="ghost" id="standupBtn">Stand-up</button>
+      <a class="ghost" id="replayLink" href="#">Replay</a>
+      <button class="icon" id="theme" aria-label="Toggle theme" title="Theme"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/></svg></button>
+      <button class="icon only-mobile" id="panelBtn" aria-label="Team panel"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><b id="panelBadge" hidden></b></button>
+    </nav>
+  </div>
+</header>
+
+<!-- ============================================================== goal -->
+<section class="goal" id="goal" role="button" tabindex="0" title="Set the team goal">
+  <div class="eyebrow">Team goal</div>
+  <h1 id="goalText"><em>No goal yet.</em> Click to set what the team is building.</h1>
+  <div class="progress" id="progress" hidden><span id="progressFill"></span></div>
+  <div class="milestones" id="milestones"></div>
+</section>
+
+<main>
+  <!-- ============================================================ chat -->
+  <section class="chat">
+    <div id="log" aria-live="polite"></div>
+    <div class="composer-wrap">
+      <div id="replying" hidden></div>
+      <form id="f" class="composer">
+        <div class="chips" id="typeChips" role="radiogroup" aria-label="Message type">
+          <button type="button" class="chip on" data-type="chat">Chat</button>
+          <button type="button" class="chip" data-type="decision">Decision</button>
+          <button type="button" class="chip" data-type="question">Question</button>
+          <button type="button" class="chip" data-type="alert">Alert</button>
+          <button type="button" class="chip" data-type="handoff">Handoff</button>
+        </div>
+        <div class="row">
+          <textarea id="text" rows="1" placeholder="Message the team. @name to direct an agent, @all for everyone"></textarea>
+          <button class="send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================================================ side panel -->
+  <aside id="side">
+    <section class="card ink" id="approvalsCard" hidden>
+      <h2>Needs your approval <span class="count" id="apprCount"></span></h2>
+      <div id="approvals"></div>
+    </section>
+    <section class="card"><h2>Team <span class="count" id="onlineCount"></span></h2><div id="members"></div></section>
+    <section class="card" id="radarCard"><h2>Edit radar <span class="hint">uncommitted</span></h2><div id="radar"></div></section>
+    <section class="card"><h2>Proposals</h2><div id="proposals"></div></section>
+    <section class="card"><h2>Tasks</h2><div id="tasks"></div>
+      <form id="tf" class="inline"><input id="tt" placeholder="Add a task…" aria-label="New task"><button aria-label="Add task">+</button></form></section>
+    <section class="card"><h2>Contracts</h2><div id="contracts"></div></section>
+    <section class="card"><h2>Team memory</h2><div id="memory"></div></section>
+    <section class="card"><h2>Claimed files</h2><div id="claims"></div></section>
+  </aside>
+</main>
+<div class="scrim" id="scrim"></div>
+
+<!-- ============================================================== modal (replaces browser prompts) -->
+<dialog id="modal">
+  <form method="dialog" id="modalForm">
+    <h3 id="modalTitle"></h3>
+    <p id="modalText"></p>
+    <div id="modalFields"></div>
+    <div class="modal-actions"><button value="cancel" class="ghost" formnovalidate>Cancel</button><button value="ok" class="primary" id="modalOk">OK</button></div>
+  </form>
+</dialog>
+<div id="toast" role="status"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "convorum-vscode",
+  "displayName": "Convorum",
+  "description": "See your team's agent room (chat, approvals, edit radar) inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "convorum",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "main": "./extension.js",
+  "activationEvents": ["workspaceContains:.convorum.json"],
+  "contributes": {
+    "commands": [
+      { "command": "convorum.open", "title": "Convorum: Open Team Room" },
+      { "command": "convorum.digest", "title": "Convorum: Catch Up" }
+    ]
+  }
+}
