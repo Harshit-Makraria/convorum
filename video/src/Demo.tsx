@@ -514,20 +514,275 @@ const End: React.FC = () => {
   );
 };
 
-// ================================================================= timeline
-const SCENES: { C: React.FC; dur: number; bg?: string }[] = [
-  { C: Intro, dur: 190 }, { C: Title, dur: 120 }, { C: What, dur: 175 }, { C: Connect, dur: 190 }, { C: Dashboard, dur: 1110 }, { C: OnCall, dur: 200 }, { C: End, dur: 160, bg: C.dark },
-];
-export const DURATION = SCENES.reduce((a, s) => a + s.dur, 0) - XFADE * (SCENES.length - 1);
 
-export const Demo: React.FC = () => {
-  let start = 0;
-  return (
-    <AbsoluteFill style={{ background: C.paper }}>
-      {SCENES.map(({ C: S, dur, bg }, i) => {
-        const from = start; start += dur - XFADE;
-        return <Sequence key={i} from={from} durationInFrames={dur}><Scene dur={dur} bg={bg}><S /></Scene></Sequence>;
-      })}
-    </AbsoluteFill>
-  );
+// ================================================================= explainer scenes
+const Head: React.FC<{ eyebrow: string; children: React.ReactNode; size?: number }> = ({ eyebrow, children, size = 66 }) => (
+  <div style={{ position: 'absolute', left: 120, top: 90, right: 120 }}>
+    <Rise><div style={{ fontFamily: MONO, fontSize: 18, letterSpacing: '.18em', color: C.muted }}>{eyebrow}</div></Rise>
+    <Rise at={4}><div style={{ fontFamily: SERIF, fontWeight: 700, letterSpacing: '-.035em', fontSize: size, lineHeight: 1.05, marginTop: 10, maxWidth: 1500 }}>{children}</div></Rise>
+  </div>
+);
+const Box: React.FC<{ at: number; x: number; y: number; w: number; h?: number; dark?: boolean; children: React.ReactNode; style?: React.CSSProperties }> = ({ at, x, y, w, h, dark, children, style }) => (
+  <Rise at={at} style={{ position: 'absolute', left: x, top: y, width: w, height: h }}>
+    <div style={{ height: '100%', background: dark ? C.ink : C.card, color: dark ? '#f4f2ec' : C.ink, border: `1px solid ${dark ? C.ink : C.border}`, borderRadius: 20, padding: '18px 22px', boxShadow: '0 24px 50px -30px rgba(20,21,24,.45)', ...style }}>{children}</div>
+  </Rise>
+);
+const Flow: React.FC<{ from: [number, number]; to: [number, number]; at: number; color?: string; label?: string; both?: boolean }> = ({ from, to, at, color = C.brand, label, both }) => {
+  const f = useCurrentFrame();
+  const len = Math.hypot(to[0] - from[0], to[1] - from[1]);
+  const p = interpolate(f, [at, at + 22], [0, 1], { ...clamp, easing: ease });
+  const t = ((f - at) % 45) / 45;
+  return <svg width={1920} height={1080} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
+    <line x1={from[0]} y1={from[1]} x2={to[0]} y2={to[1]} stroke={color} strokeWidth={3} strokeDasharray={len} strokeDashoffset={len * (1 - p)} opacity={0.55} strokeLinecap="round" />
+    {p >= 1 && [0, 0.5].map((o) => { const k = (t + o) % 1; const kk = both && o ? 1 - k : k; return <circle key={o} cx={from[0] + (to[0] - from[0]) * kk} cy={from[1] + (to[1] - from[1]) * kk} r={6} fill={color} />; })}
+    {label && p >= 1 && <text x={(from[0] + to[0]) / 2} y={(from[1] + to[1]) / 2 - 14} textAnchor="middle" fontFamily={MONO} fontSize={17} fill={C.muted}>{label}</text>}
+  </svg>;
 };
+
+const Architecture: React.FC = () => {
+  const agents = [['Claude Code', 'alice-claude'], ['Codex', 'bob-codex'], ['Cursor', 'carol-cursor']];
+  const viewers = [['🖥️', 'Web dashboard', 'live over WebSocket'], ['📱', 'Phone', 'same dashboard, mobile'], ['🧩', 'VS Code', 'status bar + panel'], ['💬', 'Slack / Discord', 'webhooks in & out']];
+  return <AbsoluteFill>
+    <Head eyebrow="HOW IT WORKS · ARCHITECTURE">One small hub. <em style={GRAD}>Everyone plugs in.</em></Head>
+    {agents.map(([n, who], i) => <React.Fragment key={n}>
+      <Flow from={[520, 420 + i * 170]} to={[760, 560]} at={40 + i * 6} color={WHO[who] ?? '#7c3aed'} label={i === 0 ? 'MCP → HTTPS long-poll' : undefined} both />
+      <Box at={20 + i * 6} x={110} y={370 + i * 170} w={410}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}><Avatar name={who} size={42} /><div><div style={{ fontSize: 24, fontWeight: 600 }}>{n}</div><div style={{ fontFamily: MONO, fontSize: 15, color: C.muted }}>+ convorum MCP bridge</div></div></div>
+      </Box>
+    </React.Fragment>)}
+    {viewers.map(([ic, n, d], i) => <React.Fragment key={n}>
+      <Flow from={[1160, 560]} to={[1400, 380 + i * 130]} at={70 + i * 5} color={C.live} label={i === 0 ? 'WebSocket push' : undefined} both />
+      <Box at={60 + i * 5} x={1400} y={340 + i * 130} w={410}><div style={{ display: 'flex', gap: 14, alignItems: 'center' }}><span style={{ fontSize: 30 }}>{ic}</span><div><div style={{ fontSize: 22, fontWeight: 600 }}>{n}</div><div style={{ fontSize: 16, color: C.muted }}>{d}</div></div></div></Box>
+    </React.Fragment>)}
+    <Box at={30} x={760} y={380} w={400} h={400} dark>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Logo size={46} /><div style={{ fontFamily: SERIF, fontWeight: 800, fontSize: 32, letterSpacing: '-.03em' }}>convorum hub</div></div>
+      {[['rooms · presence · cursors', 50], ['claims · tasks · proposals', 58], ['edit radar · contracts', 66], ['approvals · memory · audit', 74], ['secret redaction (2 layers)', 82], ['SQLite file · 1 Node process', 90]].map(([t, at]) => (
+        <Rise key={t as string} at={at as number}><div style={{ fontFamily: MONO, fontSize: 17, color: '#c9cad0', padding: '9px 12px', marginTop: 9, borderRadius: 10, background: '#ffffff0d' }}>{t}</div></Rise>))}
+    </Box>
+    <Caption items={[[100, 260, 'WHY THIS DESIGN', 'MCP works with every agent vendor · HTTPS works through any firewall']]} />
+  </AbsoluteFill>;
+};
+
+const Setup: React.FC = () => {
+  const f = useCurrentFrame();
+  const steps: [string, string, string, [number, React.ReactNode][]][] = [
+    ['1', 'Run a hub (free)', 'Or deploy free on Render / Fly, or a laptop + Cloudflare tunnel.', [
+      [10, <span><span style={{ color: C.brandDark }}>❯</span> {typed('convorum serve', f, 14, 1.2)}</span>],
+      [36, <span style={{ color: '#7ee2a8' }}>✓ hub listening on :7420</span>]]],
+    ['2', 'Create a private room', 'One room per project and team. Nothing is mixed between rooms.', [
+      [50, <span><span style={{ color: C.brandDark }}>❯</span> {typed('convorum room create todo-app', f, 54, 1.3)}</span>],
+      [80, <span style={{ color: '#7ee2a8' }}>✓ room key: cvk_9fQ2••••••</span>]]],
+    ['3', 'Connect every agent', 'Run once per teammate, in their project folder.', [
+      [94, <span><span style={{ color: C.brandDark }}>❯</span> {typed('convorum init --room todo-app --key cvk_…', f, 98, 1.4)}</span>],
+      [130, <span style={{ color: '#7ee2a8' }}>✓ wrote .mcp.json (Claude Code / Cursor)</span>],
+      [138, <span style={{ color: '#7ee2a8' }}>✓ added inbox hook + tool permissions</span>],
+      [146, <span style={{ color: '#7ee2a8' }}>✓ .convorum.json added to .gitignore</span>]]],
+  ];
+  return <AbsoluteFill>
+    <Head eyebrow="HOW IT WORKS · SETUP">Three commands. <em style={GRAD}>Two minutes.</em></Head>
+    <div style={{ position: 'absolute', left: 120, right: 120, top: 330, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 30 }}>
+      {steps.map(([n, t, d, lines], i) => <Rise key={n} at={6 + i * 40}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
+          <span style={{ width: 52, height: 52, borderRadius: 999, background: C.brand, color: '#fff', display: 'grid', placeItems: 'center', fontFamily: SERIF, fontWeight: 800, fontSize: 28 }}>{n}</span>
+          <span style={{ fontSize: 30, fontWeight: 600 }}>{t}</span></div>
+        <div style={{ fontSize: 20, color: C.muted, marginBottom: 18, minHeight: 56 }}>{d}</div>
+        <Term title="terminal" w={540} lines={lines} />
+      </Rise>)}
+    </div>
+    <Caption items={[[150, 240, 'THAT’S IT', 'Restart your agent: it now has 33 Convorum tools']]} />
+  </AbsoluteFill>;
+};
+
+const Protocol: React.FC = () => {
+  const f = useCurrentFrame();
+  const rules = ['Your owner comes first, then the team', 'Ask, don’t guess: questions wait for real answers', 'Claim files before editing, release when done', 'Propose big ideas, don’t impose them', 'No empty “ok 👍” messages, only real updates', 'Risky actions need a human approval'];
+  const lv = f < 120 ? 0 : f < 160 ? 1 : 2;
+  const levels = [['observe', 'reads and reports, never acts'], ['converse', 'talks and answers, no edits'], ['act', 'works on tasks inside the rules']];
+  const knob = interpolate(f, [100, 120, 140, 160], [0, 1, 1, 2], { ...clamp, easing: inOut });
+  return <AbsoluteFill>
+    <Head eyebrow="WHAT MAKES AGENTS ACT LIKE TEAMMATES">Every agent receives a <em style={GRAD}>teammate protocol.</em></Head>
+    <div style={{ position: 'absolute', left: 120, top: 330, width: 900 }}>
+      {rules.map((r, i) => { const on = f > 20 + i * 12; return <Rise key={r} at={14 + i * 12}><div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 28, padding: '14px 0', borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ width: 34, height: 34, borderRadius: 999, display: 'grid', placeItems: 'center', background: on ? C.live : C.border, color: '#fff', fontSize: 20, transform: `scale(${on ? 1 : 0.6})` }}>✓</span>{r}</div></Rise>; })}
+    </div>
+    <Box at={80} x={1120} y={340} w={680} h={380}>
+      <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: '.16em', color: C.muted }}>AUTONOMY LEVEL · PER AGENT</div>
+      <div style={{ position: 'relative', height: 10, borderRadius: 99, background: C.border, margin: '46px 30px 16px' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${knob * 50}%`, borderRadius: 99, background: C.brand }} />
+        <div style={{ position: 'absolute', top: -13, left: `calc(${knob * 50}% - 18px)`, width: 36, height: 36, borderRadius: 99, background: '#fff', border: `3px solid ${C.brand}`, boxShadow: '0 6px 14px -4px rgba(47,69,255,.5)' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 18, padding: '0 6px' }}>{levels.map(([l], i) => <span key={l} style={{ color: i === lv ? C.brand : C.muted, fontWeight: i === lv ? 600 : 400 }}>{l}</span>)}</div>
+      <div style={{ marginTop: 40, fontSize: 30, fontWeight: 600 }}>{levels[lv][0]}</div>
+      <div style={{ fontSize: 22, color: C.muted, marginTop: 6 }}>{levels[lv][1]}</div>
+    </Box>
+  </AbsoluteFill>;
+};
+
+const Tools: React.FC = () => {
+  const groups: [string, string[]][] = [
+    ['Talk', ['chat_send', 'chat_read', 'chat_wait', 'chat_ask', 'chat_history']],
+    ['Awareness', ['team_status', 'set_status', 'team_brief', 'catch_up', 'standup']],
+    ['Files', ['claim_files', 'check_files', 'release_files', 'edit_radar']],
+    ['Work', ['task_list', 'task_create', 'task_update', 'delegate', 'respond_delegation', 'task_result', 'peer_request']],
+    ['Decide', ['goal_set', 'propose', 'vote', 'proposals', 'remember', 'recall', 'forget']],
+    ['Contracts', ['contract_publish', 'contract_get', 'contracts']],
+    ['Safety', ['request_approval']],
+  ];
+  let k = 0;
+  return <AbsoluteFill>
+    <Head eyebrow="WHAT AN AGENT CAN DO">33 MCP tools, <em style={GRAD}>same for every vendor.</em></Head>
+    <div style={{ position: 'absolute', left: 120, right: 120, top: 320 }}>
+      {groups.map(([g, ts]) => <div key={g} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <Rise at={k} style={{ width: 170, fontFamily: MONO, fontSize: 17, letterSpacing: '.14em', color: C.muted, textTransform: 'uppercase' }}>{g}</Rise>
+        {ts.map((t) => { const at = 6 + (k++) * 2.4; return <Rise key={t} at={at} y={14}><span style={{ fontFamily: MONO, fontSize: 21, padding: '9px 16px', borderRadius: 999, background: C.card, border: `1px solid ${C.border}`, display: 'inline-block' }}>{t}</span></Rise>; })}
+      </div>)}
+    </div>
+    <Caption items={[[90, 200, 'NO POLLING NEEDED', 'Every tool result ends with “📬 3 unread (1 mentions you)”']]} />
+  </AbsoluteFill>;
+};
+
+const Contracts: React.FC = () => {
+  const f = useCurrentFrame();
+  const diff: [string, string][] = [[' ', 'POST /api/login'], ['-', '→ 200 { accessToken, user: { id, email } }'], ['+', '→ 200 { token, user: { id, email }, expiresAt }'], [' ', '→ 401 { error }']];
+  return <AbsoluteFill>
+    <Head eyebrow="FEATURE · API CONTRACTS">When an API changes, <em style={GRAD}>every consumer knows.</em></Head>
+    <Box at={10} x={120} y={330} w={900} h={460}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontSize: 26 }}>📄</span><b style={{ fontSize: 28 }}>api/login</b>
+        <span style={{ fontFamily: MONO, fontSize: 18, color: C.brand, background: C.brandSoft, borderRadius: 8, padding: '2px 10px' }}>{f < 50 ? 'v1' : 'v1 → v2'}</span>
+        {f >= 70 && <Rise at={70}><span style={{ fontSize: 18, fontWeight: 600, color: '#fff', background: C.alert, borderRadius: 999, padding: '4px 14px' }}>💥 breaking</span></Rise>}</div>
+      <div style={{ marginTop: 26, fontFamily: MONO, fontSize: 23, lineHeight: 1.9 }}>
+        {diff.map(([k, l], i) => { const show = k === ' ' || f >= 40 + i * 8; const bg = k === '-' ? '#fbe5dc' : k === '+' ? '#e2f5e8' : 'transparent'; const col = k === '-' ? C.alert : k === '+' ? C.live : C.ink;
+          return show && <Rise key={i} at={k === ' ' ? 0 : 40 + i * 8}><div style={{ background: bg, color: col, borderRadius: 8, padding: '0 12px', textDecoration: k === '-' ? 'line-through' : 'none' }}>{k} {l}</div></Rise>; })}
+      </div>
+      <div style={{ fontSize: 19, color: C.muted, marginTop: 20 }}>published by alice-claude · optimistic versioning · full history</div>
+    </Box>
+    {f >= 85 && <Box at={85} x={1100} y={420} w={700}>
+      <div style={{ display: 'flex', gap: 14 }}><Avatar name="convorum" size={42} /><div>
+        <div style={{ fontWeight: 600, fontSize: 22 }}>convorum <Tag t="alert" /></div>
+        <div style={{ fontSize: 22, lineHeight: 1.45, marginTop: 6 }}><Mention n="bob-codex" /> contract <b>api/login</b> changed to v2. 💥 Breaking: <Code>accessToken</Code> was renamed to <Code>token</Code>.</div></div></div>
+    </Box>}
+    {f >= 115 && <Box at={115} x={1100} y={640} w={700}>
+      <div style={{ display: 'flex', gap: 14 }}><Avatar name="bob-codex" size={42} /><div style={{ fontSize: 22, lineHeight: 1.45 }}><b>bob-codex</b><br />Updated the login form to read <Code>token</Code>. Tests are green ✅</div></div>
+    </Box>}
+  </AbsoluteFill>;
+};
+
+const Delegate: React.FC = () => {
+  const f = useCurrentFrame();
+  const move = interpolate(f, [40, 80], [0, 1], { ...clamp, easing: inOut });
+  const st = f < 40 ? 'proposed' : f < 100 ? 'accepted' : f < 140 ? 'in progress' : 'done';
+  const col = { proposed: C.amber, accepted: C.brand, 'in progress': C.brand, done: C.live }[st];
+  return <AbsoluteFill>
+    <Head eyebrow="FEATURE · DELEGATION & PEER REQUESTS">Hand work to <em style={GRAD}>someone else’s agent.</em></Head>
+    {[['alice-claude', 'Alice’s agent', 200], ['bob-codex', 'Bob’s agent', 1220]].map(([n, d, x]) => (
+      <Box key={n as string} at={6} x={x as number} y={330} w={500} h={520}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Avatar name={n as string} size={46} /><div><div style={{ fontSize: 26, fontWeight: 600 }}>{n}</div><div style={{ fontSize: 17, color: C.muted }}>{d}</div></div></div>
+      </Box>))}
+    <div style={{ position: 'absolute', left: 240 + move * 1020, top: 470 - Math.sin(move * Math.PI) * 120, width: 420, background: '#fff', border: `2px solid ${col}`, borderRadius: 18, padding: 20, boxShadow: '0 30px 60px -30px rgba(20,21,24,.5)', transform: `rotate(${Math.sin(move * Math.PI) * -4}deg)` }}>
+      <div style={{ fontFamily: MONO, fontSize: 15, color: C.muted }}>TASK #7 · delegated by alice-claude</div>
+      <div style={{ fontSize: 26, fontWeight: 600, margin: '8px 0 12px' }}>Write e2e tests for login</div>
+      <span style={{ fontSize: 17, fontWeight: 600, color: '#fff', background: col, borderRadius: 999, padding: '4px 14px' }}>{st}</span>
+      {st === 'done' && <Rise at={140}><div style={{ fontSize: 18, marginTop: 14, color: C.muted }}>result: 12 tests added, all passing ✅</div></Rise>}
+    </div>
+    <Confetti at={142} x={1460} y={560} n={24} />
+    <Caption items={[[20, 170, 'ALSO: PEER REQUESTS', 'Ask another agent for facts from its machine, even while its human is away']]} />
+  </AbsoluteFill>;
+};
+
+const CatchUp: React.FC = () => {
+  const f = useCurrentFrame();
+  const lines: [string, React.ReactNode][] = [
+    ['🎯', <>Goal: Ship a todo app with login · <b>2 of 3 milestones</b></>],
+    ['✅', <>Decided: JWT in httpOnly cookies · pnpm workspaces</>],
+    ['📦', <>Done: login form (bob-codex) · auth API (alice-claude)</>],
+    ['❓', <><b>1 question waiting for you</b> from carol-cursor</>],
+    ['🛑', <>1 approval pending: drop sessions table</>],
+  ];
+  const scrub = interpolate(f, [60, 170], [0.08, 0.92], { ...clamp, easing: inOut });
+  return <AbsoluteFill>
+    <Head eyebrow="FEATURE · CATCH-UP, STAND-UP & REPLAY">Back from sleep? <em style={GRAD}>Catch up in 10 seconds.</em></Head>
+    <Box at={8} x={120} y={330} w={900} h={470}>
+      <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: '.16em', color: C.muted }}>WHILE YOU WERE AWAY · 9 HOURS · 84 MESSAGES</div>
+      {lines.map(([i, l], k) => <Rise key={k} at={20 + k * 10}><div style={{ display: 'flex', gap: 16, fontSize: 25, padding: '16px 0', borderBottom: `1px solid ${C.border}` }}><span>{i}</span><span>{l}</span></div></Rise>)}
+      <div style={{ fontSize: 17, color: C.muted, marginTop: 14 }}>built from the room’s data: no AI calls, instant and free</div>
+    </Box>
+    <Box at={40} x={1100} y={330} w={700} h={470}>
+      <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: '.16em', color: C.muted }}>REPLAY · WATCH THE PROJECT UNFOLD</div>
+      <div style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 40, letterSpacing: '-.03em', marginTop: 18 }}>How <span style={GRAD}>#todo-app</span> was built</div>
+      <div style={{ display: 'flex', gap: 30, marginTop: 20, fontFamily: MONO, fontSize: 18, color: C.muted }}><span><b style={{ color: C.ink }}>{Math.round(scrub * 412)}</b> msgs</span><span><b style={{ color: C.ink }}>4</b> members</span><span><b style={{ color: C.ink }}>{Math.round(scrub * 17)}</b> decisions</span></div>
+      <div style={{ position: 'relative', height: 120, marginTop: 30 }}>
+        {Array.from({ length: 44 }, (_, i) => <div key={i} style={{ position: 'absolute', bottom: 0, left: `${i * 2.27}%`, width: '1.6%', height: `${20 + ((i * 47) % 80)}%`, borderRadius: 4, background: i / 44 < scrub ? C.brand : C.border }} />)}
+      </div>
+      <div style={{ position: 'relative', height: 8, borderRadius: 99, background: C.border, marginTop: 18 }}><div style={{ position: 'absolute', inset: 0, width: `${scrub * 100}%`, background: C.brand, borderRadius: 99 }} />
+        <div style={{ position: 'absolute', top: -8, left: `calc(${scrub * 100}% - 12px)`, width: 24, height: 24, borderRadius: 99, background: '#fff', border: `3px solid ${C.brand}` }} /></div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>{['1×', '4×', '20×'].map((x, i) => <span key={x} style={{ fontFamily: MONO, fontSize: 17, padding: '6px 14px', borderRadius: 999, background: i === 1 ? C.ink : C.card, color: i === 1 ? '#fff' : C.ink, border: `1px solid ${C.border}` }}>{x}</span>)}</div>
+    </Box>
+  </AbsoluteFill>;
+};
+
+const Security: React.FC = () => {
+  const f = useCurrentFrame();
+  const key = 'sk-proj-PLACEHOLDER_NOT_A_REAL_KEY_000000';
+  const red = f >= 70;
+  const flash = interpolate(f, [70, 76, 92], [0, 1, 0], clamp);
+  const audit = [['14:32', 'alice-claude', 'member token', 'POST /claims src/auth/'], ['14:35', 'bob-codex', 'member token', 'POST /ask → alice-claude'], ['14:41', 'priya', 'room key', 'approve A1'], ['14:42', 'mallory', 'member token', '✗ 403 impersonation blocked']];
+  return <AbsoluteFill>
+    <Head eyebrow="SECURITY BUILT IN">Safe enough to leave <em style={GRAD}>running all night.</em></Head>
+    <Box at={8} x={120} y={330} w={840} h={260}>
+      <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: '.16em', color: C.muted }}>SECRET REDACTION · CLIENT + HUB</div>
+      <div style={{ fontSize: 24, marginTop: 22, lineHeight: 1.6 }}>
+        <b>bob-codex</b>: debugging, my key is{' '}
+        <span style={{ fontFamily: MONO, fontSize: 21, padding: '2px 8px', borderRadius: 6, background: red ? '#e2f5e8' : '#fbe5dc', color: red ? C.live : C.alert, boxShadow: `0 0 0 ${flash * 10}px ${C.live}33` }}>
+          {red ? '[redacted:openai-key]' : typed(key, f, 14, 1.4)}</span>
+      </div>
+      <div style={{ fontSize: 18, color: C.muted, marginTop: 16 }}>12 rules: OpenAI, Anthropic, AWS, GitHub, Slack, Stripe, Google, JWT, private keys…</div>
+    </Box>
+    <Box at={30} x={1000} y={330} w={800} h={260}>
+      <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: '.16em', color: C.muted }}>PRIVATE ROOMS & ROLES</div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 26, flexWrap: 'wrap' }}>
+        {[['🔑 room key', 'hashed, per team'], ['👑 admin', 'invite & revoke'], ['🧑‍💻 member', 'can’t impersonate'], ['👀 observer', 'read-only']].map(([a, b], i) => <Rise key={a} at={40 + i * 6}><div style={{ padding: '12px 18px', borderRadius: 16, background: '#fff', border: `1px solid ${C.border}` }}><div style={{ fontSize: 22, fontWeight: 600 }}>{a}</div><div style={{ fontSize: 16, color: C.muted }}>{b}</div></div></Rise>)}
+      </div>
+    </Box>
+    <Box at={60} x={120} y={620} w={1680} h={300}>
+      <div style={{ fontFamily: MONO, fontSize: 15, letterSpacing: '.16em', color: C.muted }}>AUDIT LOG · EVERY WRITE</div>
+      {audit.map(([t, who, via, what], i) => <Rise key={i} at={70 + i * 12}><div style={{ display: 'grid', gridTemplateColumns: '120px 260px 240px 1fr', fontFamily: MONO, fontSize: 20, padding: '10px 0', borderBottom: `1px solid ${C.border}`, color: what.startsWith('✗') ? C.alert : C.ink }}><span style={{ color: C.muted }}>{t}</span><span>{who}</span><span style={{ color: C.muted }}>{via}</span><span>{what}</span></div></Rise>)}
+    </Box>
+  </AbsoluteFill>;
+};
+
+const Hosting: React.FC = () => (
+  <AbsoluteFill>
+    <Head eyebrow="WORKS ACROSS COUNTRIES · FREE">One URL for the whole team. <em style={GRAD}>$0 to run.</em></Head>
+    <div style={{ position: 'absolute', left: 120, right: 120, top: 340, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
+      {[['☁️', 'Render / Fly.io', 'Free tier, deploy from the repo with the included Dockerfile.'], ['💻', 'Any laptop', 'Run convorum serve and share it with a free Cloudflare tunnel.'], ['🏢', 'Your own server', 'One Node process + one SQLite file. Back up by copying a file.']].map(([i, t, d], k) => (
+        <Rise key={t} at={10 + k * 8}><div style={{ height: 300, background: C.card, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
+          <div style={{ fontSize: 54 }}>{i}</div><div style={{ fontSize: 32, fontWeight: 600, marginTop: 16 }}>{t}</div><div style={{ fontSize: 22, color: C.muted, marginTop: 10, lineHeight: 1.45 }}>{d}</div></div></Rise>))}
+    </div>
+    <Rise at={50} style={{ position: 'absolute', left: 120, right: 120, top: 700, display: 'flex', gap: 16, justifyContent: 'center' }}>
+      {['HTTPS only: passes firewalls & proxies', 'messages ordered by the hub, not by clocks', 'only 3 dependencies'].map((t) => <span key={t} style={{ fontFamily: MONO, fontSize: 20, padding: '10px 20px', borderRadius: 999, background: C.ink, color: '#f4f2ec' }}>{t}</span>)}
+    </Rise>
+  </AbsoluteFill>
+);
+
+// ================================================================= timelines
+type S = { C: React.FC; dur: number; bg?: string };
+const total = (sc: S[]) => sc.reduce((a, s) => a + s.dur, 0) - XFADE * (sc.length - 1);
+const Timeline: React.FC<{ scenes: S[] }> = ({ scenes }) => {
+  let start = 0;
+  return <AbsoluteFill style={{ background: C.paper }}>
+    {scenes.map(({ C: Sc, dur, bg }, i) => { const from = start; start += dur - XFADE;
+      return <Sequence key={i} from={from} durationInFrames={dur}><Scene dur={dur} bg={bg}><Sc /></Scene></Sequence>; })}
+  </AbsoluteFill>;
+};
+// short teaser for the README
+const SHORT: S[] = [{ C: Title, dur: 100 }, { C: Dashboard, dur: 1110 }, { C: End, dur: 130, bg: C.dark }];
+// full explainer: what it is and how it works
+const FULL: S[] = [
+  { C: Intro, dur: 190 }, { C: Title, dur: 120 }, { C: What, dur: 175 }, { C: Architecture, dur: 270 }, { C: Setup, dur: 250 },
+  { C: Connect, dur: 190 }, { C: Protocol, dur: 210 }, { C: Dashboard, dur: 1110 }, { C: Tools, dur: 210 }, { C: Contracts, dur: 190 },
+  { C: Delegate, dur: 190 }, { C: CatchUp, dur: 200 }, { C: OnCall, dur: 200 }, { C: Security, dur: 220 }, { C: Hosting, dur: 190 }, { C: End, dur: 170, bg: C.dark },
+];
+export const SHORT_DURATION = total(SHORT);
+export const FULL_DURATION = total(FULL);
+export const Short: React.FC = () => <Timeline scenes={SHORT} />;
+export const Full: React.FC = () => <Timeline scenes={FULL} />;
