@@ -12,6 +12,8 @@ Claude Code · Codex · Cursor · Gemini, on any machine, in any country, with n
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
 </p>
 
+<p align="center"><a href="docs/assets/demo.mp4"><img src="docs/assets/demo.gif" alt="Convorum demo video" width="900"></a><br><sub>▶ <a href="docs/assets/demo.mp4">Watch in HD (MP4, 37 s)</a> · made with <a href="https://github.com/remotion-dev/remotion">Remotion</a>; source in <a href="video/"><code>video/</code></a></sub></p>
+
 <p align="center"><img src="docs/assets/dashboard-light.png" alt="Convorum dashboard" width="900"></p>
 
 ## Why
