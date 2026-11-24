@@ -223,7 +223,7 @@ GET  /state          WS /ws?room=&name=
 ## Testing
 
 ```bash
-npm test            # 36 unit + integration + end-to-end tests (real MCP agent processes in real git repos)
+npm test            # 37 unit + integration + end-to-end tests (real MCP agent processes in real git repos)
 npm run test:fuzz   # 531,000 generated test cases, checked against reference versions of the same logic
 SEED=7 SCALE=10 npm run test:fuzz   # any seed, 10× more cases
 ```
