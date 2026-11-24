@@ -113,8 +113,8 @@ test('full team scenario through real agent tools', async () => {
   assert.match(await approving, /APPROVED by harshit/);
 
   // 9. secrets typed by an agent never reach the room
-  await bob.call('chat_send', { body: 'debug: OPENAI key sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD' });
-  assert.ok(!(await harshit.history({ limit: 5 })).messages.some((m) => m.body.includes('sk-proj-abcdef')));
+  await bob.call('chat_send', { body: 'debug: OPENAI key ' + ['sk', 'proj', 'FAKE'.repeat(10)].join('-') });
+  assert.ok(!(await harshit.history({ limit: 5 })).messages.some((m) => m.body.includes('FAKEFAKE')));
 
   // 10. catch-up, stand-up, timeline, audit
   assert.match(await alice.call('catch_up', { hours: 1 }), /DECISIONS[\s\S]*FINISHED/);
