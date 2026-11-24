@@ -42,7 +42,7 @@
   if (qs.get('name')) ls('ct_name', name);
   const keys = ls('ct_keys') || {};
   if (room && qs.get('key')) { keys[room] = qs.get('key'); ls('ct_keys', keys); }
-  if (qs.get('key') || qs.get('name')) history.replaceState(null, '', location.pathname);
+  if (qs.get('key') || qs.get('name') || qs.get('token')) history.replaceState(null, '', location.pathname);
   const roomKey = () => keys[room] || '';
 
   async function boot() {

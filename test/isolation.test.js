@@ -52,3 +52,23 @@ test('same name in different rooms is independent', async () => {
   await a.remember('proj-1 uses Postgres', 'fact');
   assert.equal((await b.recall('Postgres')).memories.length, 0);
 });
+
+test('credentials in REST query strings are ignored (only headers count); responses send no Referer', async () => {
+  const { key } = await Hub.createRoom({ url }, 'qs-room');
+  const viaQuery = await fetch(`${url}/api/rooms/qs-room/messages?key=${key}`);
+  assert.equal(viaQuery.status, 403, 'room key in URL must not authenticate REST calls');
+  const viaHeader = await fetch(`${url}/api/rooms/qs-room/messages`, { headers: { 'x-room-key': key } });
+  assert.equal(viaHeader.status, 200);
+  assert.equal(viaHeader.headers.get('referrer-policy'), 'no-referrer');
+});
+
+test('hub token: header works, query string does not, wrong token rejected', async () => {
+  const { server: s2 } = createHub({ dbFile: ':memory:', token: 'hub-secret-placeholder' });
+  await new Promise((r) => s2.listen(0, r));
+  const u = `http://localhost:${s2.address().port}/api/rooms/t/messages`;
+  try {
+    assert.equal((await fetch(u, { headers: { authorization: 'Bearer hub-secret-placeholder' } })).status, 200);
+    assert.equal((await fetch(u, { headers: { authorization: 'Bearer wrong' } })).status, 401);
+    assert.equal((await fetch(`${u}?token=hub-secret-placeholder`)).status, 401);
+  } finally { s2.close(); }
+});

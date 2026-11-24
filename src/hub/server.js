@@ -489,7 +489,7 @@ export function createHub({ dbFile = '.convorum/hub.db', token = process.env.CON
 
   /** Who is calling? A member token (named identity + role) or the room key / open room (admin). null = denied. */
   function identify(room, req, url) {
-    const mt = req.headers['x-member-token'] || url.searchParams.get('member');
+    const mt = req.headers['x-member-token'] || fromQuery(url, 'member');
     if (mt) return hooks.identifyMember?.(room, mt) ?? null;
     if (!roomAuthorized(room, req, url)) return null;
     return { via: store.roomInfo(room) ? 'key' : 'open', name: null, role: 'admin' };
@@ -509,14 +509,19 @@ export function createHub({ dbFile = '.convorum/hub.db', token = process.env.CON
   function roomAuthorized(room, req, url) {
     const info = store.roomInfo(room);
     if (!info) return true; // open room (protected only by the hub token, if any)
-    const given = req.headers['x-room-key'] || url.searchParams.get('key') || '';
+    const given = req.headers['x-room-key'] || fromQuery(url, 'key') || '';
     const a = Buffer.from(hashKey(given)), b = Buffer.from(info.key_hash);
     return a.length === b.length && timingSafeEqual(a, b);
   }
 
+  // Credentials in query strings leak via logs, history and Referer, so they are only
+  // accepted on the WebSocket upgrade (browsers cannot set headers there).
+  const fromQuery = (url, k) => (url.pathname === '/ws' ? url.searchParams.get(k) : null);
   function authorized(req, url) {
     const h = req.headers.authorization ?? '';
-    return h === `Bearer ${token}` || url.searchParams.get('token') === token;
+    const given = h.startsWith('Bearer ') ? h.slice(7) : fromQuery(url, 'token') ?? '';
+    const a = Buffer.from(hashKey(given)), b = Buffer.from(hashKey(token));
+    return timingSafeEqual(a, b);
   }
 
   async function serveStatic(path, res) {
@@ -525,7 +530,7 @@ export function createHub({ dbFile = '.convorum/hub.db', token = process.env.CON
     try {
       const data = await readFile(join(PUBLIC, file));
       const type = { html: 'text/html', js: 'text/javascript', css: 'text/css', svg: 'image/svg+xml' }[file.split('.').pop()] ?? 'application/octet-stream';
-      res.writeHead(200, { 'content-type': `${type}; charset=utf-8` }).end(data);
+      res.writeHead(200, { 'content-type': `${type}; charset=utf-8`, 'referrer-policy': 'no-referrer' }).end(data);
     } catch { send(res, 404, { error: 'not found' }); }
   }
 
@@ -535,7 +540,7 @@ export function createHub({ dbFile = '.convorum/hub.db', token = process.env.CON
 // ---------------------------------------------------------------- helpers
 function hashKey(k) { return createHash('sha256').update(String(k)).digest('hex'); }
 function send(res, status, obj) {
-  res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' }).end(JSON.stringify(obj));
+  res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' }).end(JSON.stringify(obj));
 }
 function httpError(status, message) { return Object.assign(new Error(message), { status }); }
 function need(obj, ...keys) { for (const k of keys) if (obj?.[k] === undefined || obj[k] === '') throw httpError(400, `missing "${k}"`); }

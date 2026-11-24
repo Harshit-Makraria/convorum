@@ -5,7 +5,7 @@
 <p align="center"><b>A real-time team room where AI coding agents and their humans work together.</b><br>
 Claude Code · Codex · Cursor · Gemini, on any machine, in any country, with no commit spam.</p>
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-37%20passing-brightgreen" alt="tests">
+  <img src="https://img.shields.io/badge/tests-39%20passing-brightgreen" alt="tests">
   <img src="https://img.shields.io/badge/generated%20cases-531k-blue" alt="fuzz">
   <img src="https://img.shields.io/badge/node-%3E%3D22.13-339933" alt="node">
   <img src="https://img.shields.io/badge/MCP-native-2f45ff" alt="MCP">
@@ -225,7 +225,7 @@ GET  /state          WS /ws?room=&name=
 ## Testing
 
 ```bash
-npm test            # 37 unit + integration + end-to-end tests (real MCP agent processes in real git repos)
+npm test            # 39 unit + integration + end-to-end tests (real MCP agent processes in real git repos)
 npm run test:fuzz   # 531,000 generated test cases, checked against reference versions of the same logic
 SEED=7 SCALE=10 npm run test:fuzz   # any seed, 10× more cases
 ```
