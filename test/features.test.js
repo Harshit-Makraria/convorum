@@ -135,7 +135,7 @@ test('integrations: outgoing Slack webhook + incoming slash command, no echo', a
 
 test('secrets are redacted before storage even if a client skips redaction', async () => {
   const raw = new Hub({ url, room: 'sec', name: 'leaky' });
-  const { message } = await raw.req('POST', '/messages', { sender: 'leaky', body: 'my key is AKIAABCDEFGHIJKLMNOP and password=hunter22x' });
-  assert.ok(!message.body.includes('AKIAABCDEFGHIJKLMNOP')); assert.ok(!message.body.includes('hunter22x'));
+  const { message } = await raw.req('POST', '/messages', { sender: 'leaky', body: 'my key is AKIAPLACEHOLDER00000 and password=placeholder-pass' });
+  assert.ok(!message.body.includes('AKIAPLACEHOLDER00000')); assert.ok(!message.body.includes('placeholder-pass'));
   assert.deepEqual(message.meta.redacted.sort(), ['aws-access-key', 'credential-assignment']);
 });
